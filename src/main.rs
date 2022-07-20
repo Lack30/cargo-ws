@@ -1,13 +1,12 @@
 mod config;
 
+use clap::Parser;
+use config::{Cargo, CargoLock, Workspace};
 use std::{
     fs,
     path::{Path, PathBuf},
     process::Command as OsCommand,
 };
-
-use clap::Parser;
-use config::{Cargo, CargoLock, Workspace};
 
 #[derive(Parser)]
 #[clap(name = "cargo", bin_name = "cargo")]
@@ -33,9 +32,8 @@ fn dep_handler(args: &Ws) {
     let cargo_lock = Path::new(&args.root).join("Cargo.lock");
 
     // 读取项目 Cargo.toml 和 Cargo.lock 文件 获取项目依赖第三方包信息
-    let cargo_toml: Cargo = Cargo::from_path(cargo).expect("Failed to parse Cargo.toml");
-    let cargo_lock_toml: CargoLock =
-        CargoLock::from_path(cargo_lock).expect("Failed to parse Cargo.lock");
+    let cargo = Cargo::from_path(cargo).expect("Failed to parse Cargo.toml");
+    let cargo_lock = CargoLock::from_path(cargo_lock).expect("Failed to parse Cargo.lock");
 
     let home = dirs::home_dir().expect("Failed to get current user home directory");
 
@@ -70,26 +68,25 @@ fn dep_handler(args: &Ws) {
         println!("cargo not be installed");
         return;
     }
-    let src = cargo_home.join("registry").join("src");
-    let dir = fs::read_dir(src.as_path()).expect("walk $HOME/.cargo");
+    let registry_src = fs::read_dir(cargo_home.join("registry").join("src").as_path())
+        .expect("Failed to walk $HOME/.cargo");
     let mut registry = PathBuf::new();
-    let file = dir.take(1).next();
-    if let Some(result) = file {
+    let registry_entry = registry_src.take(1).next();
+    if let Some(result) = registry_entry {
         if let Ok(entry) = result {
             registry = entry.path();
         }
     }
 
-    let ws =
-        Workspace::from(rustup, registry, &cargo_lock_toml).expect("Failed to create workspace");
+    let ws = Workspace::from(rustup, registry, &cargo_lock).expect("Failed to create workspace");
 
-    let name = match cargo_toml.package.as_ref() {
-        Some(pack) => pack.name.clone(),
+    let name = match cargo.package {
+        Some(ref pack) => pack.name.clone(),
         None => "cargo-ws".to_string(),
     };
 
     let path = name + ".code-workspace";
-    ws.apply(path).expect("save workspace file");
+    ws.apply(path).expect("Failed to save workspace file");
 }
 
 fn main() {

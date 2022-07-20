@@ -133,7 +133,7 @@ impl Workspace {
         let mut rust_exclude_dirs = Vec::new();
 
         if registry.as_ref().exists() {
-            if let Some(packages) = lock.package.as_ref() {
+            if let Some(ref packages) = lock.package {
                 for pack in packages {
                     let pack_name = pack.name.clone() + "-" + pack.version.as_str();
                     deps.insert(pack_name, ());
