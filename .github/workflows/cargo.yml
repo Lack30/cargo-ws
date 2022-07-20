@@ -26,10 +26,10 @@ jobs:
 
       - uses: actions-rs/cargo@v1
         with:
-          command: cargo
-          args: login ${{ secrets.CRATE_REGISTRY_TOKEN }}
+          command: login
+          args: ${{ secrets.CRATE_REGISTRY_TOKEN }}
 
       - uses: actions-rs/cargo@v1
         with:
-          command: cargo
-          args: publish    
+          command: publish
+          # args: publish    
