@@ -1,4 +1,4 @@
-![build](https://github.com/lack-io/cargo-ws/actions/workflows/ci.yml/badge.svg)
+[![build badge](https://github.com/lack-io/cargo-ws/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/lack-io/cargo-ws/actions/workflows/rust.yml/badge.svg)
 
 [中文文档](https://github.com/lack-io/cargo-ws/blob/main/README_CN.md)
 

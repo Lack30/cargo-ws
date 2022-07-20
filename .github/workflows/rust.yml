@@ -1,6 +1,6 @@
 on: [push]
 
-name: CI
+name: rust
 
 jobs:
   build_and_test:
