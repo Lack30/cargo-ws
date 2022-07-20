@@ -1,3 +1,42 @@
+/// 生成 vscode *.code-workspace，让 vscode 实现 Clion 类似的功能，直接在项目中浏览相关的依赖包代码。
+/// 
+/// 思路如下:
+///  1. vscode 可以通过设置工作区支持打开多个目录，这样就可以将标准库和第三方库添加到工作区中。
+///  2. rust 默认标准库保存在 $HOME/.rustup 目录中，通过 `rustup default` 确认默认的 toolchains，因
+///     此标准库路径为，$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/
+///  3. rust 第三方库保存在 $HOME/.cargo 目录中，ll $HOME/.cargo/registry/src/github.com-xx 中
+///  4. $HOME/.cargo 中保存本机所有项目依赖包的缓存，所以还需要忽略无关的包，读取项目 Cargo.lock 文件，确
+///     认当前项目的依赖包，将其他包记录到 "settings" > "files.exclude"
+///  5. rust-analyzer 启动时会加载工作区所有的包，导致打开缓慢，设置 "settings" > "rust-analyzer.files.excludeDirs"
+///     屏蔽非本项目的包。
+/// 
+/// code-workspace 格式:
+/// {
+///  "folders": [
+///    {
+///      "name": "",
+///      "path": "."
+///    },
+///    {
+///      "name": "Stdlib",
+///      "path": "$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library"
+///    },
+///    {
+///      "name": "External Libraries",
+///      "path": "$HOME/.cargo/registry/src/github.com-1ecc6299db9ec823"
+///    }
+///  ],
+///  "settings": {
+///    "files.exclude": {
+///         "clap-3.2.0",
+///         ...
+///    },
+///    "rust-analyzer.files.excludeDirs": [
+///      "$HOME/.cargo/registry/src/github.com-1ecc6299db9ec823",
+///      "$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library"
+///    ]
+///  }
+/// }
 mod config;
 
 use clap::Parser;
@@ -27,7 +66,7 @@ struct Ws {
     root: String,
 }
 
-fn dep_handler(args: &Ws) {
+fn generate(args: &Ws) {
     let cargo = Path::new(&args.root).join("Cargo.toml");
     let cargo_lock = Path::new(&args.root).join("Cargo.lock");
 
@@ -92,6 +131,6 @@ fn dep_handler(args: &Ws) {
 fn main() {
     let app = App::parse();
     match app {
-        App::Ws(args) => dep_handler(&args),
+        App::Ws(args) => generate(&args),
     }
 }

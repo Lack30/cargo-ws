@@ -1,12 +1,12 @@
+use anyhow::{Ok, Result};
+use serde_derive::{Deserialize, Serialize};
+
 use std::{
     collections::HashMap,
     fs::{self, File},
     io::Read,
     path::Path,
 };
-
-use anyhow::{Ok, Result};
-use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct Cargo {
