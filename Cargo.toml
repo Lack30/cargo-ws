@@ -21,3 +21,4 @@ serde_derive = { version = "1.0" }
 toml = { version = "0.5" }
 serde_json = { version = "1.0" }
 anyhow = "1.0"
+dirs = "4.0"

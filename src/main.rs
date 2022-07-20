@@ -33,10 +33,11 @@ fn dep_handler(args: &Ws) {
     let cargo_lock = Path::new(&args.root).join("Cargo.lock");
 
     // 读取项目 Cargo.toml 和 Cargo.lock 文件 获取项目依赖第三方包信息
-    let cargo_toml: Cargo = Cargo::from_path(cargo).expect("parse Cargo.toml");
-    let cargo_lock_toml: CargoLock = CargoLock::from_path(cargo_lock).expect("parse Cargo.lock");
+    let cargo_toml: Cargo = Cargo::from_path(cargo).expect("Failed to parse Cargo.toml");
+    let cargo_lock_toml: CargoLock =
+        CargoLock::from_path(cargo_lock).expect("Failed to parse Cargo.lock");
 
-    let home = std::env::var("HOME").expect("env HOME");
+    let home = dirs::home_dir().expect("Failed to get current user home directory");
 
     let rustup_home = Path::new(&home).join(".rustup");
     if !rustup_home.exists() {
@@ -79,7 +80,8 @@ fn dep_handler(args: &Ws) {
         }
     }
 
-    let ws = Workspace::from(rustup, registry, &cargo_lock_toml).expect("create workspace");
+    let ws =
+        Workspace::from(rustup, registry, &cargo_lock_toml).expect("Failed to create workspace");
 
     let name = match cargo_toml.package.as_ref() {
         Some(pack) => pack.name.clone(),
