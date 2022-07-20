@@ -1,3 +1,5 @@
+![build](https://github.com/lack-io/cargo-ws/actions/workflows/ci.yml/badge.svg)
+
 [中文文档](https://github.com/lack-io/cargo-ws/blob/main/README_CN.md)
 
 # summary
