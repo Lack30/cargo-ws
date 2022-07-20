@@ -11,7 +11,7 @@ use serde_derive::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
 #[clap(
-    name = "cargo dep",
+    name = "cargo ws",
     author = "Lack",
     version = "0.1.0",
     usage = "cargo dep [options]",
@@ -19,11 +19,11 @@ use serde_derive::{Deserialize, Serialize};
     long_about = "generate vscode workspace file"
 )]
 enum App {
-    Dep(Dep),
+    Ws(Ws),
 }
 
 #[derive(clap::Args, Debug)]
-struct Dep {
+struct Ws {
     /// Name of the person to greet
     #[clap(short, long, value_parser, default_value = ".")]
     root: String,
@@ -143,7 +143,7 @@ struct WorkspaceSettings {
     rust_exclude_dirs: Option<Vec<String>>,
 }
 
-fn dep_handler(args: &Dep) {
+fn dep_handler(args: &Ws) {
     let cargo_lock = Path::new(&args.root).join("Cargo.lock");
     let cargo = Path::new(&args.root).join("Cargo.toml");
     let mut cargo_lock_fd = File::open(cargo_lock).expect("open Cargo.lock");
@@ -170,6 +170,6 @@ fn dep_handler(args: &Dep) {
 fn main() {
     let app = App::parse();
     match app {
-        App::Dep(args) => dep_handler(&args),
+        App::Ws(args) => dep_handler(&args),
     }
 }
