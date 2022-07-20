@@ -10,6 +10,8 @@ cargo install cargo-ws
 
 # generate vscode workspace file
 ```bash
+cargo new foo
+cd foo
 cargo ws
 ```
 

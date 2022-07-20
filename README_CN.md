@@ -8,6 +8,8 @@ cargo install cargo-ws
 
 # 生成配置文件
 ```bash
+cargo new foo
+cd foo
 cargo ws
 ```
 
