@@ -13,7 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 #[clap(
     name = "cargo dep",
     author = "Lack",
-    version = "1.0.0",
+    version = "0.1.0",
     usage = "cargo dep [options]",
     about = "cargo plugin",
     long_about = "generate vscode workspace file"
