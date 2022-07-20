@@ -7,4 +7,6 @@
 *.tar
 *.gz
 
+.DS_Store
+
 *.code-workspace
