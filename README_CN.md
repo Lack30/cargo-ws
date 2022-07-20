@@ -10,6 +10,7 @@ cargo install cargo-ws
 ```bash
 cargo new foo
 cd foo
+cargo check
 cargo ws
 ```
 
