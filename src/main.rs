@@ -11,12 +11,19 @@ use serde_derive::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
 #[clap(
-    author = "lack",
+    name = "cargo dep",
+    author = "Lack",
     version = "1.0.0",
+    usage = "cargo dep [options]",
     about = "cargo plugin",
     long_about = "generate vscode workspace file"
 )]
-struct Args {
+enum App {
+    Dep(Dep),
+}
+
+#[derive(clap::Args, Debug)]
+struct Dep {
     /// Name of the person to greet
     #[clap(short, long, value_parser, default_value = ".")]
     root: String,
@@ -83,24 +90,23 @@ impl Workspace {
         let mut file_excludes = HashMap::new();
         let mut rust_exclude_dirs = Vec::new();
 
+        let root_string = root.clone().into_os_string().into_string().unwrap();
         for p in fs::read_dir(&root)? {
             let entry = p.unwrap();
             let file_name = entry.file_name().into_string().unwrap();
-            // let file_path = entry.path().into_os_string().into_string().unwrap();
             if !deps.contains_key(&file_name) {
                 file_excludes.insert(file_name.clone(), true);
-                // rust_exclude_dirs.push(file_path);
             }
         }
 
-        rust_exclude_dirs.push(root.clone().into_os_string().into_string().unwrap());
+        rust_exclude_dirs.push(root_string.clone());
         folders.push(WorkspaceFolder {
             name: "".to_string(),
             path: ".".to_string(),
         });
         folders.push(WorkspaceFolder {
             name: "External Library".to_string(),
-            path: root.clone().into_os_string().into_string().unwrap(),
+            path: root_string.clone(),
         });
 
         let settings = WorkspaceSettings {
@@ -137,9 +143,7 @@ struct WorkspaceSettings {
     rust_exclude_dirs: Option<Vec<String>>,
 }
 
-fn main() {
-    let args = Args::parse();
-
+fn dep_handler(args: &Dep) {
     let cargo_lock = Path::new(&args.root).join("Cargo.lock");
     let cargo = Path::new(&args.root).join("Cargo.toml");
     let mut cargo_lock_fd = File::open(cargo_lock).expect("open Cargo.lock");
@@ -160,5 +164,12 @@ fn main() {
 
     let ws = Workspace::from(&cargo_toml, &cargo_lock_toml).expect("create workspace");
 
-    ws.apply().expect("save workspace file"); 
+    ws.apply().expect("save workspace file");
+}
+
+fn main() {
+    let app = App::parse();
+    match app {
+        App::Dep(args) => dep_handler(&args),
+    }
 }
