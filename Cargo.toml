@@ -9,8 +9,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 categories = [
-    "cargo",
-    "plugin",
+    "development-tools::cargo-plugins",
 ]
 
 [[bin]]
