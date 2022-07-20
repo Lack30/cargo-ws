@@ -1,0 +1,36 @@
+on:
+  push:
+    tags:
+    - 'v*'
+
+name: cargo publish
+
+jobs:
+  cargo_publish:
+    name: Rust project
+    runs-on: ubuntu-latest
+    environment: pro
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: cargo
+          args: login ${{ pro.CRATE_REGISTRY_TOKEN }}
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: cargo
+          args: publish    
