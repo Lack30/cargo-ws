@@ -1,170 +1,93 @@
+mod config;
+
 use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::Read,
+    fs,
     path::{Path, PathBuf},
+    process::Command as OsCommand,
 };
 
-use anyhow::{Ok, Result};
 use clap::Parser;
-use serde_derive::{Deserialize, Serialize};
+use config::{Cargo, CargoLock, Workspace};
 
-#[derive(Parser, Debug)]
-#[clap(
-    name = "cargo ws",
-    author = "Lack",
-    version = "0.1.0",
-    usage = "cargo dep [options]",
-    about = "cargo plugin",
-    long_about = "generate vscode workspace file"
-)]
+#[derive(Parser)]
+#[clap(name = "cargo", bin_name = "cargo")]
 enum App {
     Ws(Ws),
 }
 
 #[derive(clap::Args, Debug)]
+#[clap(
+    author,
+    version,
+    usage = "cargo ws [options]",
+    about = "generate vscode workspace file"
+)]
 struct Ws {
     /// Name of the person to greet
     #[clap(short, long, value_parser, default_value = ".")]
     root: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct Cargo {
-    package: Option<Package>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CargoLock {
-    package: Option<Vec<Package>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Package {
-    name: String,
-    version: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Workspace {
-    #[serde(skip)]
-    name: String,
-    folders: Option<Vec<WorkspaceFolder>>,
-    settings: Option<WorkspaceSettings>,
-}
-
-impl Workspace {
-    fn from(cargo: &Cargo, lock: &CargoLock) -> Result<Workspace> {
-        let mut folders: Vec<WorkspaceFolder> = Vec::new();
-        let mut deps = HashMap::new();
-        let mut name = String::new();
-        let home = std::env::var("HOME")?;
-        let cargo_home = Path::new(&home).join(".cargo");
-        if !cargo_home.exists() {
-            anyhow::bail!("cargo not be installed");
-        }
-        let src = cargo_home.join("registry").join("src");
-        let dir = fs::read_dir(src.as_path())?;
-        let mut root = PathBuf::new();
-        for file in dir {
-            if file.is_ok() {
-                root = file.unwrap().path();
-                break;
-            }
-        }
-
-        if root.exists() {
-            name = match cargo.package.as_ref() {
-                Some(v) => v.name.clone(),
-                None => "dep".to_string(),
-            };
-
-            if let Some(packages) = lock.package.as_ref() {
-                for pack in packages {
-                    let pack_name = pack.name.clone() + "-" + pack.version.as_str();
-                    deps.insert(pack_name, ());
-                }
-            }
-        }
-
-        let mut file_excludes = HashMap::new();
-        let mut rust_exclude_dirs = Vec::new();
-
-        let root_string = root.clone().into_os_string().into_string().unwrap();
-        for p in fs::read_dir(&root)? {
-            let entry = p.unwrap();
-            let file_name = entry.file_name().into_string().unwrap();
-            if !deps.contains_key(&file_name) {
-                file_excludes.insert(file_name.clone(), true);
-            }
-        }
-
-        rust_exclude_dirs.push(root_string.clone());
-        folders.push(WorkspaceFolder {
-            name: "".to_string(),
-            path: ".".to_string(),
-        });
-        folders.push(WorkspaceFolder {
-            name: "External Library".to_string(),
-            path: root_string.clone(),
-        });
-
-        let settings = WorkspaceSettings {
-            file_excludes: Some(file_excludes),
-            rust_exclude_dirs: Some(rust_exclude_dirs),
-        };
-        let ws = Workspace {
-            name,
-            folders: Some(folders),
-            settings: Some(settings),
-        };
-
-        Ok(ws)
-    }
-
-    fn apply(&self) -> Result<()> {
-        let text = serde_json::to_string_pretty(&self)?;
-        fs::write(self.name.to_string() + ".code-workspace", text)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct WorkspaceFolder {
-    name: String,
-    path: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct WorkspaceSettings {
-    #[serde(rename = "files.exclude")]
-    file_excludes: Option<HashMap<String, bool>>,
-    #[serde(rename = "rust-analyzer.files.excludeDirs")]
-    rust_exclude_dirs: Option<Vec<String>>,
-}
-
 fn dep_handler(args: &Ws) {
-    let cargo_lock = Path::new(&args.root).join("Cargo.lock");
     let cargo = Path::new(&args.root).join("Cargo.toml");
-    let mut cargo_lock_fd = File::open(cargo_lock).expect("open Cargo.lock");
-    let mut cargo_fd = File::open(cargo).expect("open Cargo.toml");
+    let cargo_lock = Path::new(&args.root).join("Cargo.lock");
 
-    let mut cargo_lock_buf = String::new();
-    cargo_lock_fd
-        .read_to_string(&mut cargo_lock_buf)
-        .expect("read Cargo.lock");
+    // 读取项目 Cargo.toml 和 Cargo.lock 文件 获取项目依赖第三方包信息
+    let cargo_toml: Cargo = Cargo::from_path(cargo).expect("parse Cargo.toml");
+    let cargo_lock_toml: CargoLock = CargoLock::from_path(cargo_lock).expect("parse Cargo.lock");
 
-    let mut cargo_buf = String::new();
-    cargo_fd
-        .read_to_string(&mut cargo_buf)
-        .expect("read Cargo.toml");
+    let home = std::env::var("HOME").expect("env HOME");
 
-    let cargo_lock_toml: CargoLock = toml::from_str(&cargo_lock_buf).expect("decode Cargo.lock");
-    let cargo_toml: Cargo = toml::from_str(&cargo_buf).expect("decode Cargo.toml");
+    let rustup_home = Path::new(&home).join(".rustup");
+    if !rustup_home.exists() {
+        println!("rustc rust be installed");
+        return;
+    }
 
-    let ws = Workspace::from(&cargo_toml, &cargo_lock_toml).expect("create workspace");
+    let output = OsCommand::new("rustup")
+        .arg("default")
+        .output()
+        .expect("Failed to execute rustup");
+    let result = String::from_utf8_lossy(output.stdout.as_slice()).to_string();
+    let toolchain = result.split(" ").take(1).next();
+    if toolchain.is_none() {
+        println!("Failed to parse rustup toolchain");
+        return;
+    }
+    let rustup = rustup_home
+        .join("toolchains")
+        .join(toolchain.unwrap().to_string())
+        .join("lib")
+        .join("rustlib")
+        .join("src")
+        .join("rust")
+        .join("library");
 
-    ws.apply().expect("save workspace file");
+    // 确定 rust .cargo 路径
+    let cargo_home = Path::new(&home).join(".cargo");
+    if !cargo_home.exists() {
+        println!("cargo not be installed");
+        return;
+    }
+    let src = cargo_home.join("registry").join("src");
+    let dir = fs::read_dir(src.as_path()).expect("walk $HOME/.cargo");
+    let mut registry = PathBuf::new();
+    let file = dir.take(1).next();
+    if let Some(result) = file {
+        if let Ok(entry) = result {
+            registry = entry.path();
+        }
+    }
+
+    let ws = Workspace::from(rustup, registry, &cargo_lock_toml).expect("create workspace");
+
+    let name = match cargo_toml.package.as_ref() {
+        Some(pack) => pack.name.clone(),
+        None => "cargo-ws".to_string(),
+    };
+
+    let path = name + ".code-workspace";
+    ws.apply(path).expect("save workspace file");
 }
 
 fn main() {
