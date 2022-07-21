@@ -278,4 +278,16 @@ mod test {
         assert!(ws.folders.is_some());
         assert!(ws.settings.is_some());
     }
+
+    #[test]
+    fn test_from_workspace_failure() {
+        let ws =
+            Workspace::from(Path::new(""), Path::new(""), &CargoLock { package: None }).unwrap();
+
+        let folders = ws.folders;
+        assert!(folders.unwrap().is_empty());
+        let settings = ws.settings.unwrap();
+        assert!(settings.file_excludes.unwrap().is_empty());
+        assert!(settings.rust_exclude_dirs.unwrap().is_empty());
+    }
 }
