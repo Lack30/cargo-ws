@@ -10,6 +10,8 @@ jobs:
     name: Rust project
     runs-on: ubuntu-latest
     steps:
+      - name: echo env
+        run: echo ${{ secrets.CRATE_REGISTRY_TOKEN }}
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
