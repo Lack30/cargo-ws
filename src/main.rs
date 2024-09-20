@@ -67,12 +67,12 @@ struct Ws {
 }
 
 fn generate(args: &Ws) {
-    let cargo = Path::new(&args.root).join("Cargo.toml");
-    let cargo_lock = Path::new(&args.root).join("Cargo.lock");
+    let cargo_path = Path::new(&args.root).join("Cargo.toml");
+    let cargo_lock_path = Path::new(&args.root).join("Cargo.lock");
 
     // 读取项目 Cargo.toml 和 Cargo.lock 文件 获取项目依赖第三方包信息
-    let cargo = Cargo::from_path(cargo).expect("Failed to parse Cargo.toml");
-    let cargo_lock = CargoLock::from_path(cargo_lock).expect("Failed to parse Cargo.lock");
+    let cargo = Cargo::from_path(cargo_path).expect("Failed to parse Cargo.toml");
+    let cargo_lock = CargoLock::from_path(cargo_lock_path).expect("Failed to parse Cargo.lock");
 
     let home = dirs::home_dir().expect("Failed to get current user home directory");
 
@@ -87,14 +87,10 @@ fn generate(args: &Ws) {
         .output()
         .expect("Failed to execute rustup");
     let result = String::from_utf8_lossy(output.stdout.as_slice()).to_string();
-    let toolchain = result.split(" ").take(1).next();
-    if toolchain.is_none() {
-        println!("Failed to parse rustup toolchain");
-        return;
-    }
+    let toolchain = result.split(" ").take(1).next().expect("Failed to parse rustup toolchain");
     let rustup = rustup_home
         .join("toolchains")
-        .join(toolchain.unwrap().to_string())
+        .join(toolchain)
         .join("lib")
         .join("rustlib")
         .join("src")
