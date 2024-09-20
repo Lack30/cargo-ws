@@ -57,7 +57,7 @@ enum App {
 #[clap(
     author,
     version,
-    usage = "cargo ws [options]",
+    override_usage = "cargo ws [options]",
     about = "generate vscode workspace file"
 )]
 struct Ws {
