@@ -1,12 +1,10 @@
-use anyhow::{Ok, Result};
-use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::Read,
-    path::Path,
-};
+use anyhow::Result;
+use serde_derive::{Deserialize, Serialize};
+use url::Url;
 
 #[derive(Debug, Deserialize)]
 pub struct Cargo {
@@ -22,26 +20,22 @@ impl Cargo {
     /// mod config
     ///
     /// use std::path::Path;
-    /// use anyhow::{Ok, Result}
+    /// use anyhow::Result
     /// use config::Cargo
     ///
     /// fn main() -> Result<()> {
     ///     let path = Path::new("Cargo.toml");
     ///     let cargo = Cargo::from_path(path)?;    
     ///         
-    ///     OK(())
+    ///     Ok(())
     /// }
     /// ```
     pub fn from_path<P>(path: P) -> Result<Cargo>
     where
         P: AsRef<Path>,
     {
-        let mut fd = File::open(path).expect("open Cargo.toml");
-
-        let mut buf = String::new();
-        fd.read_to_string(&mut buf)?;
-
-        let cargo: Cargo = toml::from_str(&buf)?;
+        let s = fs::read_to_string(path)?;
+        let cargo: Cargo = toml::from_str(&s)?;
 
         Ok(cargo)
     }
@@ -61,26 +55,22 @@ impl CargoLock {
     /// mod config
     ///
     /// use std::path::Path;
-    /// use anyhow::{Ok, Result}
+    /// use anyhow::Result
     /// use config::CargoLock
     ///
     /// fn main() -> Result<()> {
     ///     let path = Path::new("Cargo.lock");
     ///     let cargo_lock = CargoLock::from_path(path)?;    
     ///         
-    ///     OK(())
+    ///     Ok(())
     /// }
     /// ```
     pub fn from_path<P>(path: P) -> Result<CargoLock>
     where
         P: AsRef<Path>,
     {
-        let mut fd = File::open(path)?;
-
-        let mut buf = String::new();
-        fd.read_to_string(&mut buf)?;
-
-        let cargo_lock: CargoLock = toml::from_str(&buf)?;
+        let s = fs::read_to_string(path)?;
+        let cargo_lock: CargoLock = toml::from_str(&s)?;
 
         Ok(cargo_lock)
     }
@@ -100,6 +90,77 @@ pub struct Workspace {
     pub folders: Option<Vec<WorkspaceFolder>>,
     // 生成 code-workspace 中的 "settings" 配置
     pub settings: Option<WorkspaceSettings>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CargoCfg {
+    source: Option<HashMap<String, Source>>,
+}
+
+impl CargoCfg {
+    /// 读取 $HOME/.cargo/config.toml 解析成 CargoCfg
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// mod config
+    ///
+    /// use std::path::Path;
+    /// use anyhow::Result
+    /// use config::CargoCfg
+    ///
+    /// fn main() -> Result<()> {
+    ///     let cargo_lock = CargoCfg::read()?;    
+    ///         
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn read() -> Result<CargoCfg> {
+        let home = dirs::home_dir().expect("no home directory");
+        let mut path = home.join(".cargo").join("config.toml");
+        if !path.exists() {
+            path = home.join(".cargo").join("config")
+        }
+        let s = fs::read_to_string(path)?;
+        let cargo_cfg: CargoCfg = toml::from_str(&s)?;
+
+        Ok(cargo_cfg)
+    }
+
+    pub fn registry(&self) -> Option<String> {
+        if self.source.is_none() {
+            return None;
+        }
+
+        if let Some(source) = &self.source {
+            let value = source.get("crates-io");
+            if let Some(registry) = value {
+                let replace_with = registry.replace_with.clone().unwrap_or("".to_string());
+                if replace_with == "" {
+                    if let Some(host) = &registry.registry {
+                        let url = Url::parse(&host).ok()?;
+                        return url.host_str().and_then(|s| Some(s.to_string()));
+                    }
+                } else {
+                    let replace_source = source.get(&replace_with);
+                    if let Some(registry) = replace_source {
+                        let url = Url::parse(&registry.registry.clone().unwrap_or("".to_string()))
+                            .ok()?;
+                        return url.host_str().and_then(|s| Some(s.to_string()));
+                    }
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Source {
+    registry: Option<String>,
+    #[serde(rename(deserialize = "replace-with"))]
+    replace_with: Option<String>,
 }
 
 impl Workspace {
@@ -140,24 +201,17 @@ impl Workspace {
                 }
             }
 
-            let rustup_string = rustup
-                .as_ref()
-                .to_path_buf()
-                .clone()
-                .into_os_string()
-                .into_string()
-                .unwrap();
+            let rustup_string = rustup.as_ref().to_path_buf().to_string_lossy().to_string();
 
             let registry_string = registry
                 .as_ref()
                 .to_path_buf()
                 .clone()
-                .into_os_string()
-                .into_string()
-                .unwrap();
+                .to_string_lossy()
+                .to_string();
             for p in fs::read_dir(registry.as_ref())? {
                 let entry = p.unwrap();
-                let file_name = entry.file_name().into_string().unwrap();
+                let file_name = entry.file_name().to_string_lossy().to_string();
                 if !deps.contains_key(&file_name) {
                     file_excludes.insert(file_name.clone(), true);
                 }
@@ -245,9 +299,10 @@ pub struct WorkspaceSettings {
 
 mod test {
     #[allow(unused)]
-    use crate::config::{Cargo, CargoLock, Workspace};
-    #[allow(unused)]
     use std::path::Path;
+
+    #[allow(unused)]
+    use crate::config::{Cargo, CargoCfg, CargoLock, Workspace};
 
     #[test]
     fn test_from_cargo() {
@@ -263,6 +318,13 @@ mod test {
         let cargo = CargoLock::from_path(path).unwrap();
 
         assert!(cargo.package.is_some());
+    }
+
+    #[test]
+    fn test_read_cargo_config() {
+        let cargo = CargoCfg::read().unwrap();
+
+        println!("{:?}", cargo.registry());
     }
 
     #[test]

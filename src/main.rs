@@ -1,5 +1,5 @@
 /// 生成 vscode *.code-workspace，让 vscode 实现 Clion 类似的功能，直接在项目中浏览相关的依赖包代码。
-/// 
+///
 /// 思路如下:
 ///  1. vscode 可以通过设置工作区支持打开多个目录，这样就可以将标准库和第三方库添加到工作区中。
 ///  2. rust 默认标准库保存在 $HOME/.rustup 目录中，通过 `rustup default` 确认默认的 toolchains，因
@@ -9,7 +9,7 @@
 ///     认当前项目的依赖包，将其他包记录到 "settings" > "files.exclude"
 ///  5. rust-analyzer 启动时会加载工作区所有的包，导致打开缓慢，设置 "settings" > "rust-analyzer.files.excludeDirs"
 ///     屏蔽非本项目的包。
-/// 
+///
 /// code-workspace 格式:
 /// {
 ///  "folders": [
@@ -39,13 +39,12 @@
 /// }
 mod config;
 
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command as OsCommand;
+
 use clap::Parser;
-use config::{Cargo, CargoLock, Workspace};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command as OsCommand,
-};
+use config::{Cargo, CargoCfg, CargoLock, Workspace};
 
 #[derive(Parser)]
 #[clap(name = "cargo", bin_name = "cargo")]
@@ -74,6 +73,11 @@ fn generate(args: &Ws) {
     let cargo = Cargo::from_path(cargo_path).expect("Failed to parse Cargo.toml");
     let cargo_lock = CargoLock::from_path(cargo_lock_path).expect("Failed to parse Cargo.lock");
 
+    let cargo_cfg = CargoCfg::read().expect("Failed to parse Cargo config");
+    let default_registry = cargo_cfg
+        .registry()
+        .unwrap_or("index.crates.io".to_string());
+
     let home = dirs::home_dir().expect("Failed to get current user home directory");
 
     let rustup_home = Path::new(&home).join(".rustup");
@@ -87,7 +91,11 @@ fn generate(args: &Ws) {
         .output()
         .expect("Failed to execute rustup");
     let result = String::from_utf8_lossy(output.stdout.as_slice()).to_string();
-    let toolchain = result.split(" ").take(1).next().expect("Failed to parse rustup toolchain");
+    let toolchain = result
+        .split(" ")
+        .take(1)
+        .next()
+        .expect("Failed to parse rustup toolchain");
     let rustup = rustup_home
         .join("toolchains")
         .join(toolchain)
@@ -106,9 +114,9 @@ fn generate(args: &Ws) {
     let registry_src = fs::read_dir(cargo_home.join("registry").join("src").as_path())
         .expect("Failed to walk $HOME/.cargo");
     let mut registry = PathBuf::new();
-    let registry_entry = registry_src.take(1).next();
-    if let Some(result) = registry_entry {
-        if let Ok(entry) = result {
+    for entry in registry_src.filter_map(|res| res.ok()) {
+        let filename = entry.file_name().to_string_lossy().to_string();
+        if filename.starts_with(&default_registry) {
             registry = entry.path();
         }
     }
