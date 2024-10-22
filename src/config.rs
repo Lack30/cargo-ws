@@ -321,13 +321,6 @@ mod test {
     }
 
     #[test]
-    fn test_read_cargo_config() {
-        let cargo = CargoCfg::read().unwrap();
-
-        println!("{:?}", cargo.registry());
-    }
-
-    #[test]
     fn test_from_workspace() {
         let rustup = Path::new("rustup").to_path_buf();
         let registry = Path::new("registry").to_path_buf();
